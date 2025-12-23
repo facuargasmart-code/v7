@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>For People Imports – Calculadora V4 PRO</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+<style>
+body { font-family: Arial; background:#f7f9fc; padding:20px; }
+h1 { color:#0a48c9; text-align:center; }
+table { width:100%; border-collapse: collapse; margin-top:15px; }
+th, td { border:1px solid #ccc; padding:6px; text-align:center; }
+th { background:#0a48c9; color:white; }
+input { width:100%; box-sizing:border-box; padding:5px; }
+button { padding:10px 15px; margin:5px; background:#0a48c9; color:white; border:none; cursor:pointer; }
+button:hover { background:#083b99; }
+.total { font-weight:bold; background:#eef3ff; }
+</style>
+</head>
+
+<body>
+
+<h1>FOR PEOPLE IMPORTS – CALCULADORA V4 PRO</h1>
+
+<div>
+TC USD→ARS: <input id="tc" type="number" value="1600" style="width:80px">
+IIBB %: <input id="iibb" type="number" value="3" style="width:60px">
+Gastos USD: <input id="gastos" type="number" value="0" style="width:80px">
+</div>
+
+<button onclick="agregar()">➕ Agregar producto</button>
+<button onclick="exportarExcel()">📊 Exportar Excel</button>
+
+<table>
+<thead>
+<tr>
+<th>Producto</th>
+<th>NCM</th>
+<th>Arancel %</th>
+<th>FOB USD</th>
+<th>Cant</th>
+<th>Flete</th>
+<th>Seguro</th>
+<th>CIF</th>
+<th>Impuestos</th>
+<th>Total USD</th>
+<th>Unit USD</th>
+<th>Total ARS</th>
+</tr>
+</thead>
+<tbody id="body"></tbody>
+<tfoot>
+<tr class="total">
+<td colspan="9">TOTAL GENERAL</td>
+<td id="tUSD">0</td>
+<td></td>
+<td id="tARS">0</td>
+</tr>
+</tfoot>
+</table>
+
+<script>
+const aranceles = {
+  "8517.62.00": 16,
+  "8518.10.00": 18,
+  "3926.90.90": 20
+};
+
+let productos = [];
+
+function agregar() {
+  productos.push({
+    nombre:"", ncm:"", arancel:0, fob:0, cant:0, flete:0, seguro:0
+  });
+  render();
+}
+
+function render() {
+  const body = document.getElementById("body");
+  body.innerHTML = "";
+  let totalUSD = 0, totalARS = 0;
+  const tc = Number(tcEl.value), iibb = Number(iibbEl.value)/100, gastos = Number(gastosEl.value);
+
+  productos.forEach((p,i)=>{
+    if (aranceles[p.ncm]) p.arancel = aranceles[p.ncm];
+
+    const cif = (p.fob*p.cant)+p.flete+p.seguro;
+    const derechos = cif*(p.arancel/100);
+    const tasa = cif*0.03;
+    const base = cif+derechos+tasa;
+    const imp = derechos+tasa+(base*0.21)+(base*0.105)+(base*0.06)+(base*iibb);
+    const total = cif+imp+gastos;
+    const ars = total*tc;
+
+    totalUSD+=total; totalARS+=ars;
+
+    body.innerHTML+=`
+    <tr>
+<td><input value="${p.nombre}" oninput="productos[${i}].nombre=this.value"></td>
+<td><input value="${p.ncm}" oninput="productos[${i}].ncm=this.value;render()"></td>
+<td>${p.arancel}</td>
+<td><input type="number" value="${p.fob}" oninput="productos[${i}].fob=this.value"></td>
+<td><input type="number" value="${p.cant}" oninput="productos[${i}].cant=this.value"></td>
+<td><input type="number" value="${p.flete}" oninput="productos[${i}].flete=this.value"></td>
+<td><input type="number" value="${p.seguro}" oninput="productos[${i}].seguro=this.value"></td>
+<td>${cif.toFixed(2)}</td>
+<td>${imp.toFixed(2)}</td>
+<td>${total.toFixed(2)}</td>
+<td>${(total/p.cant||0).toFixed(2)}</td>
+<td>${ars.toFixed(0)}</td>
+</tr>`;
+  });
+
+  tUSD.innerText=totalUSD.toFixed(2);
+  tARS.innerText=totalARS.toFixed(0);
+}
+
+function exportarExcel(){
+  const wb=XLSX.utils.book_new();
+  const ws=XLSX.utils.json_to_sheet(productos.map(p=>{
+    return {
+      Producto:p.nombre,NCM:p.ncm,Arancel:p.arancel,
+      FOB:p.fob,Cantidad:p.cant,Flete:p.flete,Seguro:p.seguro
+    }
+  }));
+  XLSX.utils.book_append_sheet(wb,ws,"Importacion");
+  XLSX.writeFile(wb,"for_people_importacion.xlsx");
+}
+
+const tcEl=document.getElementById("tc");
+const iibbEl=document.getElementById("iibb");
+const gastosEl=document.getElementById("gastos");
+</script>
+
+</body>
+</html>
